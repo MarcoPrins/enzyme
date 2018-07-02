@@ -9,6 +9,7 @@ import './_helpers/setupAdapters';
 import { createClass, createContext } from './_helpers/react-compat';
 import { describeIf, itIf, itWithData, generateEmptyRenderData } from './_helpers';
 import { REACT013, REACT014, REACT15, REACT150_4, REACT16, REACT163, is } from './_helpers/version';
+import sloppyReturnThis from './_helpers/untranspiledSloppyReturnThis';
 
 // The shallow renderer in react 16 does not yet support batched updates. When it does,
 // we should be able to go un-skip all of the tests that are skipped with this flag.
@@ -1818,6 +1819,43 @@ describe('shallow', () => {
         const wrapper = shallow(<Foo foo="hi" bar="bye" />);
 
         expect(wrapper.props()).to.eql({ className: 'bye', id: 'hi' });
+      });
+
+      const SloppyReceiver = function SFC() {
+        /* globals window */
+        const receiver = sloppyReturnThis.call(this);
+        return (
+          <div
+            data-is-global={receiver === window}
+            data-is-undefined={typeof receiver === 'undefined'}
+          />
+        );
+      };
+
+      const StrictReceiver = function SFC() {
+        /* globals window */
+        return (
+          <div
+            data-is-global={this === window}
+            data-is-undefined={typeof this === 'undefined'}
+          />
+        );
+      };
+
+      it('does not provide a `this` to a sloppy-mode SFC', () => {
+        const wrapper = shallow(<SloppyReceiver />);
+        expect(wrapper.props()).to.eql({
+          'data-is-global': true,
+          'data-is-undefined': false,
+        });
+      });
+
+      it('does not provide a `this` to a strict-mode SFC', () => {
+        const wrapper = shallow(<StrictReceiver />);
+        expect(wrapper.props()).to.eql({
+          'data-is-global': false,
+          'data-is-undefined': true,
+        });
       });
     });
   });
